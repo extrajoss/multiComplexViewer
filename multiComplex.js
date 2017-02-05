@@ -23,7 +23,7 @@
         proteinA: "Protein A",
         proteinB: "Protein B",
         xRatio: 0.5,
-        yRatio: 0.5,
+        yRatio: 0.3,
         outerWidth: null,
         outerHeight: null,
         useURLConfig: false
@@ -414,7 +414,7 @@
         return { width: x-20, height: y-20 }; /* 20 is magic number to account for scrollbar width */
     }
 
-    /* end helper functions */
+    /* end internal functions */
 
     return { config: config, draw: draw };
 

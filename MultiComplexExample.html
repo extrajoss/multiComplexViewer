@@ -1,0 +1,62 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Programming Task - Protein Multicomplex</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/4.2.3/d3.min.js"></script>
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/tabletop.js/1.5.1/tabletop.min.js'></script>
+    <script src="multiComplex.js"></script>
+    <link href='http://fonts.googleapis.com/css?family=Poiret+One' rel='stylesheet' type='text/css'>
+    <style>
+        html{
+            --baseTextHeight: 16;
+        }
+        path.interactionPath {
+            fill: none;
+            stroke: white;            
+        }
+        path.timeAxis {
+            fill: none;
+            stroke: red;            
+        }
+        text {
+            font-family: 'Poiret One', cursive;
+            font-size: calc(var(--baseTextHeight) * 1px);
+        }
+        svg {
+            background: #e3ddc3;
+            stroke: white; 
+            fill:   white;        
+        }
+        .trackLabel{
+            font-size: calc(var(--baseTextHeight) * 1.5px);
+            stroke: blue;
+            fill:   blue;
+        }
+        .timeAxisLabel{
+            font-size: calc(var(--baseTextHeight) * 1px);
+            stroke: red;
+            fill:   red;
+        }
+        .interactionLabel{
+            font-size: calc(var(--baseTextHeight) * 1px);
+            stroke: black;
+            fill:   black;
+        }
+    </style>
+</head>
+<body>
+    <script type="text/javascript">
+
+        /*
+        multiComplex.config.csvFile = "Programming Task - Protein Multicomplex Formation Data - TimeSeries Data.csv"; 
+        multiComplex.config.csvFile = "Programming Task - Protein Multicomplex Formation Data - TimeSeries Data - example.csv";  
+        multiComplex.config.googleSpreadSheet = "https://docs.google.com/spreadsheets/d/1mlnSovT52sNoAtfnB44wFqecsVE-U3M4dNAPVO9ZQws/pubhtml";
+        multiComplex.config.googleSpreadSheet = "https://docs.google.com/spreadsheets/d/19A5QR04V1OUSPTjl4VgycQcgCi02EFEoNAVikcFUfIs/pubhtml";  
+        //*/
+        multiComplex.config.useURLConfig = true;
+        multiComplex.draw();
+              
+    </script>
+</body>
+</html>

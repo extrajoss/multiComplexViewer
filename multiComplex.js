@@ -1,7 +1,7 @@
 ﻿var multiComplex = function () {
 
     var config = {
-        googleSpreadSheet:null,
+        googleSpreadSheet:"https://docs.google.com/spreadsheets/d/1mlnSovT52sNoAtfnB44wFqecsVE-U3M4dNAPVO9ZQws/pubhtml",
         csvFile: "Programming Task - Protein Multicomplex Formation Data - TimeSeries Data.csv",
         eventOrderColumn: "Order",
         proteinA: "Protein A",
@@ -42,7 +42,7 @@
     var xScale = null;
     var yScale = null;
 
-    function loadData() {        
+    function loadData() {
         if (config.googleSpreadSheet) {
             loadSpreadsheetData();
         } else if (config.csvFile) {
@@ -55,7 +55,7 @@
         if (config.useURLConfig) {
             setConfigFromURL();
         }
-        loadData();        
+        loadData();
 
     }
 
@@ -85,13 +85,13 @@
     }
 
     function settingsFromConfig() {
-        
+
         var screenDimensions = getScreenDimensions();
         if (!config.outerHeight) {
             config.outerHeight = screenDimensions.height * config.yRatio;
         }
         if (!config.outerWidth) {
-            config.outerWidth = screenDimensions.width * config.xRatio;                        
+            config.outerWidth = screenDimensions.width * config.xRatio;
         }
         settings.outerHeight = config.outerHeight;
         settings.outerWidth = config.outerWidth;
@@ -101,7 +101,7 @@
         );
         settings.interactionLabelHeight = settings.circleRadius;
         document.documentElement.style.setProperty('--baseTextHeight', settings.interactionLabelHeight);
-        settings.trackLabelWidth = settings.interactionLabelHeight * settings.maxTrackNameLength / settings.fontHeightWidthRatio;        
+        settings.trackLabelWidth = settings.interactionLabelHeight * settings.maxTrackNameLength / settings.fontHeightWidthRatio;
 
         settings.yLabelOffset = settings.circleRadius + settings.interactionLabelHeight;
         settings.xLabelOffset = 2 * settings.circleRadius + settings.trackLabelWidth;
@@ -115,7 +115,7 @@
     }
 
     function loadSpreadsheetData() {
-        Tabletop.draw({
+        Tabletop.init({
             key: config.googleSpreadSheet,
             callback: initialiseFromData,
             simpleSheet: true
@@ -125,7 +125,7 @@
     function initialiseFromData(data) {
         clearSettings();
         if (!validateConfig()) { alert("Config settings are invalid"); return; }
-        if (!validateEventData(data)) { alert("Data does not match config settings"); return; }        
+        if (!validateEventData(data)) { alert("Data does not match config settings"); return; }
 
         eventsToTracks();
         settingsFromConfig();
@@ -197,7 +197,7 @@
             }
             tracks.push(track);
             eventsToInterations(track.trackNumber);
-        }        
+        }
         settings.tracks = tracks.length;
         return [0, tracks.length];
     }
@@ -239,7 +239,7 @@
         proteinOrder = Object.keys(proteinCounts).sort(function (a, b) { return proteinCounts[b] - proteinCounts[a]; });
     }
 
-    function addProteinCount(proteinName) {        
+    function addProteinCount(proteinName) {
         proteinCounts[proteinName] = proteinCounts[proteinName] ? proteinCounts[proteinName] + 1 : 1;
     }
 
@@ -302,9 +302,9 @@
             .attr("style", "stroke-width: " + settings.circleRadius/2 + "px;")
             .classed("timeAxis", true);
         addTimeAxisLabel(xScale(span[1])- settings.circleRadius, yScale(0) - settings.yLabelOffset + settings.circleRadius );
-    } 
+    }
 
-    function addTimeAxisLabel(x,y) {        
+    function addTimeAxisLabel(x,y) {
         graphArea.append("text")
           .classed("timeAxisLabel", true)
           .style("text-anchor", "end")

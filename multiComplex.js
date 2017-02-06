@@ -41,7 +41,7 @@ exports = {};
  */
 exports.config = {
         googleSpreadSheet:"",
-        csvFile: "Programming Task - Protein Multicomplex Formation Data - TimeSeries Data.csv",
+        csvFile: "",
         eventOrderColumn: "Order",
         proteinAColumn: "Protein A",
         proteinBColumn: "Protein B",

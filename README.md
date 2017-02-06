@@ -2,9 +2,12 @@
 The multiComplex module takes data specified in either 
 * config.googleSpreadSheet or 
 * config.csvFile 
+
 and renders it via SVG and the the d3.js library to the selector specified in config.selector 
 
-The Data should have at least the below form
+The Data should have at least a minimu column set of [Protein A][Protein B] and [Order]
+
+###Example Data:
 
 | Protein A |	Protein B |	Order |
 | --- | --- | --- |
@@ -19,9 +22,9 @@ The Data should have at least the below form
 Where each row represents an interaction event between 2 proteins
 * The "Protein A" (config.proteinAColumn) column should contain the name of one of the proteins involved in the interaction event.
 * The "Protein B" (config.proteinBColumn)column should contain the name of the other protein involved in the interaction event.
-* The "Order" (config.eventOrderColumn)column should specify the order in which the interaction events occur in contiguous incrementing integers starting from 1
+* The "Order" (config.eventOrderColumn)column should specify the order in which the interaction events occur in contiguous incrementing integers starting from 1 for the first interaction. Interactions that occur at the same time should have the same [Order]
 
-###Example:
+###Example Code to render the above example data stored in a googleSpreadSheet:
 ```javascript
 muliComplex.config.googleSpreadSheet = "https://docs.google.com/spreadsheets/d/19A5QR04V1OUSPTjl4VgycQcgCi02EFEoNAVikcFUfIs/pubhtml";
 multiComplex.draw();
@@ -48,7 +51,7 @@ Properties:
 | eventOrderColumn	| string	|column name for the "order" data in the file to be loaded |
 | proteinAColumn	| string	|column name for the first protein in an interaction in the file to be loaded |
 | proteinBColumn	| string	|column name for the second protein in an interaction in the file to be loaded |
-| screenProportion | decimal | sets maximum proportion of a widow diemsion the canvas can take up, can be >0 and <= 1 eg 0.5 would take up at most half width and half height |
+| screenProportion | decimal | sets maximum proportion of a widow dimension the canvas can take up, can be >0 and <= 1 eg. 0.5 would take up at most half the width and half the height of the screen |
 | xRatio	| decimal	| ratio of x dimension of canvas to screenProportion Width, can be >0 and <= 1 |
 | yRatio	| decimal	| ratio of y dimension of canvas to screenProportion Height, can be >0 and <= 1 |
 | outerWidth	| number	| canvas width in px. Used to overRide the setting made by xRatio if a set canvas width is desired |

@@ -5,10 +5,13 @@ The Data should have at least the below form
 
 | Protein A |	Protein B |	Order |
 | --- | --- | --- |
-| P1	| P2	| 1 |
-| P1	| P3	| 2 |
-| P1	| P4	| 3 |
-| P2	| P3	| 3 |
+| P3 | P1 | 1 |
+| P8 | P1 | 2 |
+| P4 | P5 | 2 |
+| P1 | P2 | 3 |
+| P7 | P1 | 4 |
+| P5 | P6 | 4 |
+| P4 | P1 | 5 |
 
 Where each row represents an interaction event between 2 proteins
 * The "Protein A" (config.proteinAColumn) column should contain the name of one of the proteins involved in the interaction event.
@@ -18,10 +21,12 @@ Source:
 multiComplex.js, line 1
 Example
 ```javascript
-muliComplex.config.googleSpreadSheet = "https://docs.google.com/spreadsheets/d/1mlnSovT52sNoAtfnB44wFqecsVE-U3M4dNAPVO9ZQws/pubhtml";
-muliComplex.config.selector = "#mySelector";
+muliComplex.config.googleSpreadSheet = "https://docs.google.com/spreadsheets/d/19A5QR04V1OUSPTjl4VgycQcgCi02EFEoNAVikcFUfIs/pubhtml";
 multiComplex.draw();
 ```
+
+![Rendered multiComplex](images/example Rendered MultiComplex.jpg?raw=true "Rendered multiComplex")
+
 ###Requires
 module:d3.js
 module:tabletop.js

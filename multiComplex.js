@@ -20,9 +20,9 @@
  * @requires d3.js
  * @requires tabletop.js
  */
-multiComplex = function () {
+var multiComplex = function () {
 
-exports = {};
+var exports = {};
 /**
  * configuration settings to determine how the module will load event data and render tracks
  * @property {url} googleSpreadSheet - published googleSpreadSheet link.
@@ -62,7 +62,7 @@ exports.draw = function () {
             setConfigFromURL();
         }
         loadData();
-    }
+    };
 
  /**
   * internal settings generated from the config
@@ -240,14 +240,14 @@ exports.draw = function () {
    }
    tracks.sort(
      function (a, b) {return trackDetails[b].eventCount - trackDetails[a].eventCount; }
-   )
+   );
  }
 
 function getInteractions(){
   for (var i = 0, trackCount = tracks.length; i < trackCount; i++) {
     var track = trackDetails[tracks[i]];
     for (var j = 0, interactionCount = track.interactions.length; j < interactionCount; j++) {
-      interaction = track.interactions[j];
+      var interaction = track.interactions[j];
       interaction.trackNumber = i;
       interactions.push(interaction);
    }
@@ -303,10 +303,9 @@ function getInteractions(){
         canvasArea = null;
         graphArea = null;
         eventData = [];
+        trackDetails = {};
         tracks = [];
         interactions = [];
-        proteinCounts = {};
-        proteinOrder = [];
         xSpan = null;
         ySpan = null;
         xScale = null;

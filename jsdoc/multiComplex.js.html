@@ -1,17 +1,45 @@
-/**
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: multiComplex.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: multiComplex.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
  * The multiComplex module takes data specified in either config.googleSpreadSheet or config.csvFile and renders it via SVG and the the d3 library to the selector specified in config.selector
- * <br/><br/>The Data should have at least the below form
- * <table>
- * <tr><th>Protein A</th><th>Protein B</th><th>Order</th></tr>
- * <tr><th>P1</th><th>P2</th><th>1</th></tr>
- * <tr><th>P1</th><th>P3</th><th>2</th></tr>
- * <tr><th>P1</th><th>P4</th><th>3</th></tr>
- * <tr><th>P2</th><th>P3</th><th>3</th></tr>
- * </table><br/>
- * Where each row represents an interaction event between 2 proteins<br/>
- * <li>The "Protein A" (config.proteinAColumn) column should contain the name of one of the proteins involved in the interaction event.</li>
- * <li>The "Protein B" (config.proteinBColumn)column should contain the name of the other protein involved in the interaction event.</li>
- * <li>The "Order" (config.eventOrderColumn)column should specify the order in which the interaction events occur in contiguous incrementing integers starting from 1</li>
+ * &lt;br/>&lt;br/>The Data should have at least the below form
+ * &lt;table>
+ * &lt;tr>&lt;th>Protein A&lt;/th>&lt;th>Protein B&lt;/th>&lt;th>Order&lt;/th>&lt;/tr>
+ * &lt;tr>&lt;th>P1&lt;/th>&lt;th>P2&lt;/th>&lt;th>1&lt;/th>&lt;/tr>
+ * &lt;tr>&lt;th>P1&lt;/th>&lt;th>P3&lt;/th>&lt;th>2&lt;/th>&lt;/tr>
+ * &lt;tr>&lt;th>P1&lt;/th>&lt;th>P4&lt;/th>&lt;th>3&lt;/th>&lt;/tr>
+ * &lt;tr>&lt;th>P2&lt;/th>&lt;th>P3&lt;/th>&lt;th>3&lt;/th>&lt;/tr>
+ * &lt;/table>&lt;br/>
+ * Where each row represents an interaction event between 2 proteins&lt;br/>
+ * &lt;li>The "Protein A" (config.proteinAColumn) column should contain the name of one of the proteins involved in the interaction event.&lt;/li>
+ * &lt;li>The "Protein B" (config.proteinBColumn)column should contain the name of the other protein involved in the interaction event.&lt;/li>
+ * &lt;li>The "Order" (config.eventOrderColumn)column should specify the order in which the interaction events occur in contiguous incrementing integers starting from 1&lt;/li>
  * @example
  * muliComplex.config.googleSpreadSheet = "https://docs.google.com/spreadsheets/d/1mlnSovT52sNoAtfnB44wFqecsVE-U3M4dNAPVO9ZQws/pubhtml";
  * muliComplex.config.selector = "#mySelector";
@@ -26,14 +54,14 @@ exports = {};
 /**
  * configuration settings to determine how the module will load event data and render tracks
  * @property {url} googleSpreadSheet - published googleSpreadSheet link.
- * <br/>multiComplex will preferrentially load data from googleSpreadSheet
+ * &lt;br/>multiComplex will preferrentially load data from googleSpreadSheet
  * but if none is listed will use csvFile
  * @property {filePath} csvFile - local .csv file to load data from
  * @property {string} eventOrderColumn - column name for the "order" data in the file to be loaded
  * @property {string} proteinAColumn - column name for the first protein in an interaction in the file to be loaded
  * @property {string} proteinBColumn - column name for the second protein in an interaction in the file to be loaded
- * @property {decimal} xRatio - ratio of x dimension of canvas to windowWidth, can be >0 and <= 1
- * @property {decimal} yRatio - ratio of y dimension of canvas to windowHeight, can be >0 and <= 1
+ * @property {decimal} xRatio - ratio of x dimension of canvas to windowWidth, can be >0 and &lt;= 1
+ * @property {decimal} yRatio - ratio of y dimension of canvas to windowHeight, can be >0 and &lt;= 1
  * @property {number} outerWidth - canvas width in px. Used to overRide the setting made by xRatio if a set canvas width is desired
  * @property {number} outerHeight - canvas height in px. used to overRide the setting made by yRatio if a set canvas height is desired
  * @property {string} selector - used to specified the DOM element that the SVG canvas will be appended to
@@ -125,7 +153,7 @@ exports.draw = function () {
       var urlParams;
       var match,
           pl = /\+/g,  // Regex for replacing addition symbol with a space
-          search = /([^&=]+)=?([^&]*)/g,
+          search = /([^&amp;=]+)=?([^&amp;]*)/g,
           decode = function (s) { return decodeURIComponent(s.replace(pl, " ")); },
           query = window.location.search.substring(1);
 
@@ -197,7 +225,7 @@ exports.draw = function () {
             getProteinOrder();
             var trackName = proteinOrder[0];
             var track = { trackName: trackName, trackNumber: i++ };
-            if (settings.maxTrackNameLength < trackName.length) {
+            if (settings.maxTrackNameLength &lt; trackName.length) {
                 settings.maxTrackNameLength = trackName.length;
             }
             tracks[track.trackNumber] = track;
@@ -216,7 +244,7 @@ exports.draw = function () {
     }
 
     function buildProteinCounts(){
-      for (var i = 0, events = eventData.length; i < events; i++) {
+      for (var i = 0, events = eventData.length; i &lt; events; i++) {
         addProteinCount(eventData[i][config.proteinAColumn]);
         addProteinCount(eventData[i][config.proteinBColumn]);
       }
@@ -240,7 +268,7 @@ exports.draw = function () {
     function eventsToInterations(trackNumber) {
       var interactionName = null;
         var trackName = tracks[trackNumber].trackName;
-        for (var i = 0, eventCount = eventData.length; i < eventCount; interactionName?eventCount--:i++) {
+        for (var i = 0, eventCount = eventData.length; i &lt; eventCount; interactionName?eventCount--:i++) {
             interactionName = getInteractionName(eventData[i], trackName);
             if (interactionName) {
                 eventToInteraction(trackName,trackNumber,interactionName,i);
@@ -340,13 +368,13 @@ exports.draw = function () {
 
     function validateEventData(data) {
         eventData = data;
-        return ((eventData.length > 0) && eventData[0][config.eventOrderColumn] && eventData[0][config.proteinAColumn] && eventData[0][config.proteinBColumn]);
+        return ((eventData.length > 0) &amp;&amp; eventData[0][config.eventOrderColumn] &amp;&amp; eventData[0][config.proteinAColumn] &amp;&amp; eventData[0][config.proteinBColumn]);
     }
 
     function validateConfig() {
-        return ((config.xRatio > 0 && config.xRatio <= 1) || (config.outerWidth > 0)) &&
-               ((config.yRatio > 0 && config.yRatio <= 1) || (config.outerHeight > 0)) &&
-               (config.eventOrderColumn > "" && config.proteinAColumn > "" && config.proteinBColumn > "");
+        return ((config.xRatio > 0 &amp;&amp; config.xRatio &lt;= 1) || (config.outerWidth > 0)) &amp;&amp;
+               ((config.yRatio > 0 &amp;&amp; config.yRatio &lt;= 1) || (config.outerHeight > 0)) &amp;&amp;
+               (config.eventOrderColumn > "" &amp;&amp; config.proteinAColumn > "" &amp;&amp; config.proteinBColumn > "");
     }
 
 
@@ -370,7 +398,7 @@ exports.draw = function () {
     }
 
     function addInteractionPaths() {
-        for (var i = 0, trackCount = tracks.length; i < trackCount; i++) {
+        for (var i = 0, trackCount = tracks.length; i &lt; trackCount; i++) {
             var path = graphArea.append("path");
             path.attr("d", drawTrackLine(getTrackInteractions(i)))
                 .attr("style", "stroke-width: " + settings.interactionPointRadius + "px;")
@@ -428,7 +456,7 @@ exports.draw = function () {
 
     function getTrackInteractions(trackNumber) {
         var trackInteractions = [];
-        for (var i = 0, interactionCount = interactions.length; i < interactionCount; i++) {
+        for (var i = 0, interactionCount = interactions.length; i &lt; interactionCount; i++) {
             if (interactions[i].trackNumber == trackNumber) {
                 trackInteractions.push(interactions[i]);
             }
@@ -437,7 +465,7 @@ exports.draw = function () {
     }
 
     function getFirstTrackInteraction(trackNumber) {
-        for (var i = 0, interactionCount = interactions.length; i < interactionCount; i++) {
+        for (var i = 0, interactionCount = interactions.length; i &lt; interactionCount; i++) {
             if (interactions[i].trackNumber == trackNumber) {
                 return interactions[i];
             }
@@ -459,3 +487,26 @@ exports.draw = function () {
     return exports;
 
 }();
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-multiComplex.html">multiComplex</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Mon Feb 06 2017 18:36:02 GMT+1100 (AUS Eastern Daylight Time)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

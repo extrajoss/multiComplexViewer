@@ -32,8 +32,9 @@ exports = {};
  * @property {string} eventOrderColumn - column name for the "order" data in the file to be loaded
  * @property {string} proteinAColumn - column name for the first protein in an interaction in the file to be loaded
  * @property {string} proteinBColumn - column name for the second protein in an interaction in the file to be loaded
- * @property {decimal} xRatio - ratio of x dimension of canvas to windowWidth, can be >0 and <= 1
- * @property {decimal} yRatio - ratio of y dimension of canvas to windowHeight, can be >0 and <= 1
+ * @property {decimal} screenProportion - sets maximum proportion of a widow diemsion the canvas can take up, can be >0 and <= 1 eg 0.5 would take up at most half width and half height
+ * @property {decimal} xRatio - ratio of x dimension of canvas to screenProportion Width, can be >0 and <= 1
+ * @property {decimal} yRatio - ratio of y dimension of canvas to screenProportion Height, can be >0 and <= 1
  * @property {number} outerWidth - canvas width in px. Used to overRide the setting made by xRatio if a set canvas width is desired
  * @property {number} outerHeight - canvas height in px. used to overRide the setting made by yRatio if a set canvas height is desired
  * @property {string} selector - used to specified the DOM element that the SVG canvas will be appended to
@@ -44,8 +45,9 @@ exports.config = {
         eventOrderColumn: "Order",
         proteinAColumn: "Protein A",
         proteinBColumn: "Protein B",
-        xRatio: 0.5,
-        yRatio: 0.3,
+        screenProportion: 0.7,
+        xRatio: null,
+        yRatio: null,
         outerWidth: null,
         outerHeight: null,
         useURLConfig: false,
@@ -83,6 +85,8 @@ exports.draw = function () {
          trackLabelWidth: 0,
          interactionLabelHeight: 0,
          fontHeightWidthRatio: 2,
+         xRatio:0,
+         yRatio:0,
          margin: { left: 0, top: 0, right: 0, bottom: 0 }
      };
 
@@ -97,16 +101,16 @@ exports.draw = function () {
 
     var eventData = [];
     var tracks = [];
+    var trackDetails = {};
     var interactions = [];
-
-    var proteinCounts = {};
-    var proteinOrder = [];
 
     var xSpan = null;
     var ySpan = null;
 
     var xScale = null;
     var yScale = null;
+
+    var screenDimensions = null;
 
 /**
  * private functions
@@ -173,102 +177,82 @@ exports.draw = function () {
  * note that the y span is increased by one for convienience to include room for the timeAxis
  */
     function eventsToTracks() {
-        xSpan = d3.extent(eventData, function (d) { return +d[config.eventOrderColumn]; });
-        ySpan = buildTracks();
+      xSpan = d3.extent(eventData, function (d) { return +d[config.eventOrderColumn]; });
+      ySpan = getTrackSpan();
     }
 
-/**
- * buildTracks is the meat of the module
- * The proteins listed in the data are ordered in descending order by the number of interactions they are involved in
- * The protein involved in the most interactions is used to build a track and add it to the tracks variable
- * any interactions the protein was involved in are loaded to the interactions variable
- * then the event data is removed and proteinCounts recalculated
- * then the protein involved in the next most interactions from the remaining event data
- * is used to build the next track and set of interactions till all the tracks are built and no event data remains
- * populates internal variable tracks with an array of tracks made up of trackName (primary protein in interaction) and trackNumber
- * populates internal variable interactions with an array of interactions made up of trackNumber, name(of secondary protein in interaction) and order
- * clears eventData
- * @return {number_array} extent of y axis objects (ie tracks + 1 extra for timeaxis)
- */
+ function getTrackSpan(){
+    buildTrackDetails();
+    getTracks();
+    getInteractions();
+    return [0, tracks.length];
+ }
 
-    function buildTracks() {
-        var i = 0;
-        while (eventData.length > 0) {
-            getProteinOrder();
-            var trackName = proteinOrder[0];
-            var track = { trackName: trackName, trackNumber: i++ };
-            if (settings.maxTrackNameLength < trackName.length) {
-                settings.maxTrackNameLength = trackName.length;
-            }
-            tracks[track.trackNumber] = track;
-            eventsToInterations(track.trackNumber);
-        }
-        return [0, tracks.length];
-    }
+ /**
+  * buildTrackDetails is the meat of the module
+  * each interaction is processed to record each protein (protein A and B) involved
+  * and the protein it interacted with (protein B against A and A against B)(interaction.name)
+  * and to increment the number of events each protein is involved in (eventCount)
+  * any tracks that interacted with a larger track (by eventCount) are then removed
+  * @return {array} trackDetails of y axis objects (ie tracks + 1 extra for timeaxis)
+  */
+ function buildTrackDetails(){
+   for (var i = 0, eventCount = eventData.length; i < eventCount; i++) {
+     var event = eventData[i];
+     addTrackDetail(event,config.proteinAColumn,config.proteinBColumn);
+     addTrackDetail(event,config.proteinBColumn,config.proteinAColumn);
+   }
+   for (var trackName in trackDetails) {
+     removeSmallerTrackDetails(trackName);
+   }
+ }
 
-    function getProteinOrder() {
-      if(proteinOrder.length === 0){
-        buildProteinCounts();
-      }
-      proteinOrder = Object.keys(proteinCounts).sort(
-        function (a, b) { return proteinCounts[b] - proteinCounts[a]; }
-      );
-    }
+ function addTrackDetail(event,A,B){
+   if(trackDetails[event[A]]){
+     trackDetails[event[A]].interactions.push({name:event[B], order:event[config.eventOrderColumn]});
+     trackDetails[event[A]].eventCount++;
+   }else{
+     trackDetails[event[A]] = {eventCount:1,interactions:[{name:event[B], order:event[config.eventOrderColumn]}]};
+   }
+ }
 
-    function buildProteinCounts(){
-      for (var i = 0, events = eventData.length; i < events; i++) {
-        addProteinCount(eventData[i][config.proteinAColumn]);
-        addProteinCount(eventData[i][config.proteinBColumn]);
-      }
-    }
+ function removeSmallerTrackDetails(trackName){
+   var track = trackDetails[trackName];
+   if(track){
+     for (var i = 0, interactionCount = track.interactions.length; i < interactionCount; i++) {
+       if(isSmallerTrack(trackDetails[track.interactions[i].name],track)){
+         delete trackDetails[trackName];
+       }
+     }
+   }
+ }
 
-    function addProteinCount(proteinName) {
-        proteinCounts[proteinName] = (proteinCounts[proteinName] ? proteinCounts[proteinName] + 1 : 1);
-    }
+ function isSmallerTrack(interaction,track){
+   return(interaction&&track.eventCount< interaction.eventCount);
+ }
 
-    function deleteProteinCount(proteinName) {
-      if(proteinCounts[proteinName]>0){
-        proteinCounts[proteinName] = proteinCounts[proteinName] - 1;
-      }else{
-        delete proteinCounts[proteinName];
-      }
-    }
-/**
- * loads data into eventData from either a googleSpreadSheet or a local CSV depending on config
- * @param {number} trackNumber the index of the track from the tracks array used as a key to store against each interaction
- */
-    function eventsToInterations(trackNumber) {
-      var interactionName = null;
-        var trackName = tracks[trackNumber].trackName;
-        for (var i = 0, eventCount = eventData.length; i < eventCount; interactionName?eventCount--:i++) {
-            interactionName = getInteractionName(eventData[i], trackName);
-            if (interactionName) {
-                eventToInteraction(trackName,trackNumber,interactionName,i);
-            }
-        }
-    }
+ function getTracks(){
+   for (var trackName in trackDetails) {
+     if (settings.maxTrackNameLength < trackName.length) {
+         settings.maxTrackNameLength = trackName.length;
+     }
+     tracks.push(trackName);
+   }
+   tracks.sort(
+     function (a, b) {return trackDetails[b].eventCount - trackDetails[a].eventCount; }
+   )
+ }
 
-    function getInteractionName(data,trackName) {
-        var columnName = null;
-        if (data[config.proteinAColumn] == trackName) {
-            columnName = config.proteinBColumn;
-        } else if (data[config.proteinBColumn] == trackName) {
-            columnName = config.proteinAColumn;
-        }
-        return data[columnName];
-    }
-
-    function eventToInteraction(trackName,trackNumber,interactionName,eventIndex){
-      var interaction = {
-        trackNumber : trackNumber,
-        name : interactionName,
-        order : +eventData[eventIndex][config.eventOrderColumn]
-      };
+function getInteractions(){
+  for (var i = 0, trackCount = tracks.length; i < trackCount; i++) {
+    var track = trackDetails[tracks[i]];
+    for (var j = 0, interactionCount = track.interactions.length; j < interactionCount; j++) {
+      interaction = track.interactions[j];
+      interaction.trackNumber = i;
       interactions.push(interaction);
-      eventData.splice(eventIndex, 1);
-      deleteProteinCount(trackName);
-      deleteProteinCount(interactionName);
-    }
+   }
+  }
+}
 
     function render() {
         drawTracks();
@@ -277,12 +261,14 @@ exports.draw = function () {
 
     function generateSettings() {
 
-        var screenDimensions = getScreenDimensions();
+        screenDimensions = getScreenDimensions();
+        settings.yRatio = config.yRatio?config.yRatio*config.screenProportion:getyRatio();
+        settings.xRatio = config.xRatio?config.xRatio*config.screenProportion:getxRatio();
         if (!config.outerHeight) {
-            config.outerHeight = screenDimensions.height * config.yRatio;
+            config.outerHeight = screenDimensions.height * settings.yRatio;
         }
         if (!config.outerWidth) {
-            config.outerWidth = screenDimensions.width * config.xRatio;
+            config.outerWidth = screenDimensions.width * settings.xRatio;
         }
         settings.outerHeight = config.outerHeight;
         settings.outerWidth = config.outerWidth;
@@ -300,6 +286,16 @@ exports.draw = function () {
         settings.margin = { left: settings.xLabelOffset + settings.interactionPointRadius * 2, top: settings.interactionPointRadius * 2, right: settings.interactionPointRadius * 2, bottom: settings.interactionPointRadius * 2 };
         settings.innerWidth = settings.outerWidth - settings.margin.left - settings.margin.right;
         settings.innerHeight = settings.outerHeight - settings.margin.top - settings.margin.bottom;
+    }
+
+    function getyRatio(){
+      var yRatio = (screenDimensions.width /xSpan[1] )/(screenDimensions.height /ySpan[1]);
+      return yRatio>1?config.screenProportion:yRatio*config.screenProportion;
+    }
+
+    function getxRatio(){
+      var xRatio = (screenDimensions.width /ySpan[1])/(screenDimensions.height /xSpan[1] );
+      return xRatio>1?config.screenProportion:xRatio*config.screenProportion;
     }
 
     function clear(){
@@ -344,8 +340,9 @@ exports.draw = function () {
     }
 
     function validateConfig() {
-        return ((config.xRatio > 0 && config.xRatio <= 1) || (config.outerWidth > 0)) &&
-               ((config.yRatio > 0 && config.yRatio <= 1) || (config.outerHeight > 0)) &&
+        return (config.screenProportion > 0 && config.screenProportion <= 1) &&
+               ((config.xRatio > 0 && config.xRatio <= 1)||(!config.xRatio ) || (config.outerWidth > 0)) &&
+               ((config.yRatio > 0 && config.yRatio <= 1)||(!config.yRatio ) || (config.outerHeight > 0)) &&
                (config.eventOrderColumn > "" && config.proteinAColumn > "" && config.proteinBColumn > "");
     }
 
@@ -363,9 +360,9 @@ exports.draw = function () {
         trackLabels.enter().append("text")
           .classed("trackLabel trackLabels", true)
           .style("text-anchor", "end")
-          .attr("x", function (d) { return xScale(getFirstTrackInteraction(d.trackNumber).order) - 2 * settings.interactionPointRadius; })//settings.trackLabelWidth)//
-          .attr("y", function (d) { return yScale(tracks.length - d.trackNumber) + settings.interactionLabelHeight / 2; })
-          .text(function (d) { return d.trackName; });
+          .attr("x", function (d,i) { return xScale(getFirstTrackInteraction(i).order) - 2 * settings.interactionPointRadius; })//settings.trackLabelWidth)//
+          .attr("y", function (d,i) { return yScale(tracks.length - i) + settings.interactionLabelHeight / 2; })
+          .text(function (d) { return d; });
         trackLabels.exit().remove();
     }
 
@@ -392,8 +389,8 @@ exports.draw = function () {
         var interactionLabels = graphArea.selectAll(".interactionLabels").data(interactions);
         interactionLabels.enter().append("text")
           .classed("interactionLabel interactionLabels", true)
-          .style("text-anchor", "middle")
-          .attr("x", function (d) { return xScale(d.order); })
+          .style("text-anchor", "end")
+          .attr("x", function (d) { return xScale(d.order)+settings.interactionPointRadius; })
           .attr("y", function (d) { return yScale(tracks.length - d.trackNumber) + settings.yLabelOffset; })
           .text(function (d) { return d.name; });
         interactionLabels.exit().remove();

@@ -48,8 +48,9 @@ Properties:
 | eventOrderColumn	| string	|column name for the "order" data in the file to be loaded |
 | proteinAColumn	| string	|column name for the first protein in an interaction in the file to be loaded |
 | proteinBColumn	| string	|column name for the second protein in an interaction in the file to be loaded |
-| xRatio	| decimal	| ratio of x dimension of canvas to windowWidth, can be >0 and <= 1 |
-| yRatio	| decimal	| ratio of y dimension of canvas to windowHeight, can be >0 and <= 1 |
+| screenProportion | decimal | sets maximum proportion of a widow diemsion the canvas can take up, can be >0 and <= 1 eg 0.5 would take up at most half width and half height |
+| xRatio	| decimal	| ratio of x dimension of canvas to screenProportion Width, can be >0 and <= 1 |
+| yRatio	| decimal	| ratio of y dimension of canvas to screenProportion Height, can be >0 and <= 1 |
 | outerWidth	| number	| canvas width in px. Used to overRide the setting made by xRatio if a set canvas width is desired |
 | outerHeight	| number	| canvas height in px. used to overRide the setting made by yRatio if a set canvas height is desired |
 | selector	| string	| used to specified the DOM element that the SVG canvas will be appended to |

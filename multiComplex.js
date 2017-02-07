@@ -177,8 +177,8 @@ exports.draw = function () {
  * note that the y span is increased by one for convienience to include room for the timeAxis
  */
     function eventsToTracks() {
-      xSpan = d3.extent(eventData, function (d) { return +d[config.eventOrderColumn]; });
       ySpan = getTrackSpan();
+      xSpan = d3.extent(interactions, function (d) { return d.order; });
     }
 
  function getTrackSpan(){
@@ -205,6 +205,7 @@ exports.draw = function () {
    for (var trackName in trackDetails) {
      removeSmallerTrackDetails(trackName);
    }
+   console.log(trackDetails);
  }
 
  function addTrackDetail(event,A,B){
@@ -219,16 +220,27 @@ exports.draw = function () {
  function removeSmallerTrackDetails(trackName){
    var track = trackDetails[trackName];
    if(track){
-     for (var i = 0, interactionCount = track.interactions.length; i < interactionCount; i++) {
+     for (var i = 0, interactionCount = track.interactions.length; i < interactionCount; removed?interactionCount--:i++) {
+       var removed = false
        if(isSmallerTrack(trackDetails[track.interactions[i].name],track)){
-         delete trackDetails[trackName];
+         removed = removeInteraction( track,i);
+         if(track.eventCount<2) {
+           delete trackDetails[trackName];
+           return;
+         }
        }
      }
    }
  }
 
  function isSmallerTrack(interaction,track){
-   return(interaction&&track.eventCount< interaction.eventCount);
+   return(interaction&&track.eventCount<= interaction.eventCount);
+ }
+
+ function removeInteraction( track, i){
+   track.interactions.splice(i,1);
+   track.eventCount--;
+   return true;
  }
 
  function getTracks(){

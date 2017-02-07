@@ -174,7 +174,7 @@ exports.draw = function () {
 
 /**
  * generates span settings by looking at the eventData to get order extent for x and then processing the eventData to calculate tracks for y
- * note that the y span is increased by one for convienience to include room for the timeAxis
+ * note that the y span uses the length of the array rather than the maximum index to include room for the timeAxis
  */
     function eventsToTracks() {
       ySpan = getTrackSpan();
@@ -192,9 +192,8 @@ exports.draw = function () {
   * buildTrackCounts is the meat of the module
   * each interaction is processed to record each protein (protein A and B) involved
   * and the protein it interacted with (protein B against A and A against B)(interaction.name)
-  * and to increment the number of events each protein is involved in (eventCount)
-  * any tracks that interacted with a larger track (by eventCount) are then removed
-  * @return {array} TrackCounts of y axis objects (ie tracks + 1 extra for timeaxis)
+  * and to increment the number of events each protein is involved in (trackCounts)
+  * any track with with less than 3 interactions are removed
   */
  function buildTrackCounts(){
    for (var i = 0, eventCount = eventData.length; i < eventCount; i++) {
@@ -203,16 +202,22 @@ exports.draw = function () {
     addTrackCount(event[config.proteinBColumn]);
    }
    for (var trackName in TrackCounts) {
-     removeSmallerTrackCounts(trackName);
+       if (TrackCounts.hasOwnProperty(trackName)) {
+         removeSmallerTrackCounts(trackName);
+       }
    }
  }
 
  function addTrackCount(protein){
-   TrackCounts[protein]?TrackCounts[protein]++:TrackCounts[protein]=1;
+   if(TrackCounts[protein]){
+     TrackCounts[protein]++;
+   }else{
+     TrackCounts[protein]=1;
+   }
  }
 
  function removeSmallerTrackCounts(trackName){
-       if(!(TrackCounts[trackName]>2)){
+       if(TrackCounts[trackName]<=2){
            delete TrackCounts[trackName];
            return;
        }
@@ -220,8 +225,10 @@ exports.draw = function () {
 
  function getTracks(){
    for (var trackName in TrackCounts) {
-     setMaxTrackNameLength(trackName);
-     tracks.push(trackName);
+     if (TrackCounts.hasOwnProperty(trackName)) {
+       setMaxTrackNameLength(trackName);
+       tracks.push(trackName);
+     }
    }
    tracks.sort(
      function (a, b) {return TrackCounts[b] - TrackCounts[a]; }
@@ -237,7 +244,7 @@ exports.draw = function () {
 function getInteractions(){
   for (var i = 0, trackCount = tracks.length; i < trackCount; i++) {
     var track = tracks[i];
-    addInteractions(track,i)
+    addInteractions(track,i);
   }
 }
 
@@ -247,12 +254,13 @@ function addInteractions(track,trackNumber){
     var event = eventData[i];
     var proteinA = event[config.proteinAColumn];
     var proteinB = event[config.proteinBColumn];
+    var order = event[config.eventOrderColumn];
     if (proteinA == track ){
-      interaction = {name:proteinB,order:event[config.eventOrderColumn],trackNumber : trackNumber};
+      interaction = {name:proteinB,order: order,trackNumber : trackNumber};
     }else if (proteinB == track ){
-      interaction = {name:proteinA,order:event[config.eventOrderColumn],trackNumber : trackNumber};
+      interaction = {name:proteinA,order:order,trackNumber : trackNumber};
     }
-    interaction && interactions.push(interaction);
+    if(interaction) interactions.push(interaction);
  }
 }
 

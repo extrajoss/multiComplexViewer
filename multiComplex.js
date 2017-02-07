@@ -223,24 +223,15 @@ exports.draw = function () {
      for (var i = 0, interactionCount = track.interactions.length; i < interactionCount; removed?interactionCount--:i++) {
        var removed = false
        if(isSmallerTrack(trackDetails[track.interactions[i].name],track)){
-         removed = removeInteraction( track,i);
-         if(track.eventCount<2) {
            delete trackDetails[trackName];
            return;
-         }
        }
      }
    }
  }
 
  function isSmallerTrack(interaction,track){
-   return(interaction&&track.eventCount<= interaction.eventCount);
- }
-
- function removeInteraction( track, i){
-   track.interactions.splice(i,1);
-   track.eventCount--;
-   return true;
+   return(track.eventCount< 3);
  }
 
  function getTracks(){

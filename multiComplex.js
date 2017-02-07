@@ -101,7 +101,7 @@ exports.draw = function () {
 
     var eventData = [];
     var tracks = [];
-    var trackDetails = {};
+    var TrackCounts = {};
     var interactions = [];
 
     var xSpan = null;
@@ -182,88 +182,78 @@ exports.draw = function () {
     }
 
  function getTrackSpan(){
-    buildTrackDetails();
+    buildTrackCounts();
     getTracks();
     getInteractions();
     return [0, tracks.length];
  }
 
  /**
-  * buildTrackDetails is the meat of the module
+  * buildTrackCounts is the meat of the module
   * each interaction is processed to record each protein (protein A and B) involved
   * and the protein it interacted with (protein B against A and A against B)(interaction.name)
   * and to increment the number of events each protein is involved in (eventCount)
   * any tracks that interacted with a larger track (by eventCount) are then removed
-  * @return {array} trackDetails of y axis objects (ie tracks + 1 extra for timeaxis)
+  * @return {array} TrackCounts of y axis objects (ie tracks + 1 extra for timeaxis)
   */
- function buildTrackDetails(){
+ function buildTrackCounts(){
    for (var i = 0, eventCount = eventData.length; i < eventCount; i++) {
-     var event = eventData[i];
-     addTrackDetail(event,config.proteinAColumn,config.proteinBColumn);
-     addTrackDetail(event,config.proteinBColumn,config.proteinAColumn);
+    var event = eventData[i];
+    addTrackCount(event[config.proteinAColumn]);
+    addTrackCount(event[config.proteinBColumn]);
    }
-   for (var trackName in trackDetails) {
-     removeSmallerTrackDetails(trackName);
-   }
-   console.log(trackDetails);
- }
-
- function addTrackDetail(event,A,B){
-   if(trackDetails[event[A]]){
-     trackDetails[event[A]].interactions.push({name:event[B], order:event[config.eventOrderColumn]});
-     trackDetails[event[A]].eventCount++;
-   }else{
-     trackDetails[event[A]] = {eventCount:1,interactions:[{name:event[B], order:event[config.eventOrderColumn]}]};
+   for (var trackName in TrackCounts) {
+     removeSmallerTrackCounts(trackName);
    }
  }
 
- function removeSmallerTrackDetails(trackName){
-   var track = trackDetails[trackName];
-   if(track){
-     for (var i = 0, interactionCount = track.interactions.length; i < interactionCount; removed?interactionCount--:i++) {
-       var removed = false
-       if(isSmallerTrack(trackDetails[track.interactions[i].name],track)){
-         removed = removeInteraction( track,i);
-         if(track.eventCount<2) {
-           delete trackDetails[trackName];
+ function addTrackCount(protein){
+   TrackCounts[protein]?TrackCounts[protein]++:TrackCounts[protein]=1;
+ }
+
+ function removeSmallerTrackCounts(trackName){
+       if(!(TrackCounts[trackName]>2)){
+           delete TrackCounts[trackName];
            return;
-         }
        }
-     }
-   }
- }
-
- function isSmallerTrack(interaction,track){
-   return(interaction&&track.eventCount<= interaction.eventCount);
- }
-
- function removeInteraction( track, i){
-   track.interactions.splice(i,1);
-   track.eventCount--;
-   return true;
  }
 
  function getTracks(){
-   for (var trackName in trackDetails) {
-     if (settings.maxTrackNameLength < trackName.length) {
-         settings.maxTrackNameLength = trackName.length;
-     }
+   for (var trackName in TrackCounts) {
+     setMaxTrackNameLength(trackName);
      tracks.push(trackName);
    }
    tracks.sort(
-     function (a, b) {return trackDetails[b].eventCount - trackDetails[a].eventCount; }
+     function (a, b) {return TrackCounts[b] - TrackCounts[a]; }
    );
+ }
+
+ function setMaxTrackNameLength(trackName){
+   if (settings.maxTrackNameLength < trackName.length) {
+       settings.maxTrackNameLength = trackName.length;
+   }
  }
 
 function getInteractions(){
   for (var i = 0, trackCount = tracks.length; i < trackCount; i++) {
-    var track = trackDetails[tracks[i]];
-    for (var j = 0, interactionCount = track.interactions.length; j < interactionCount; j++) {
-      var interaction = track.interactions[j];
-      interaction.trackNumber = i;
-      interactions.push(interaction);
-   }
+    var track = tracks[i];
+    addInteractions(track,i)
   }
+}
+
+function addInteractions(track,trackNumber){
+  for (var i = 0, eventCount = eventData.length; i < eventCount; i++) {
+    var interaction = null;
+    var event = eventData[i];
+    var proteinA = event[config.proteinAColumn];
+    var proteinB = event[config.proteinBColumn];
+    if (proteinA == track ){
+      interaction = {name:proteinB,order:event[config.eventOrderColumn],trackNumber : trackNumber};
+    }else if (proteinB == track ){
+      interaction = {name:proteinA,order:event[config.eventOrderColumn],trackNumber : trackNumber};
+    }
+    interaction && interactions.push(interaction);
+ }
 }
 
     function render() {
@@ -315,7 +305,7 @@ function getInteractions(){
         canvasArea = null;
         graphArea = null;
         eventData = [];
-        trackDetails = {};
+        TrackCounts = {};
         tracks = [];
         interactions = [];
         xSpan = null;
@@ -334,7 +324,7 @@ function getInteractions(){
           .attr("transform", "translate(" + settings.margin.left + "," + settings.margin.top + ")");
 
         xScale = d3.scaleLinear().range([0, settings.innerWidth]);
-        yScale = d3.scaleLinear().range([settings.innerHeight - settings.interactionLabelHeight, 0]);
+        yScale = d3.scaleLinear().range([settings.innerHeight, 0]);
 
         xScale.domain(xSpan);
         yScale.domain(ySpan);

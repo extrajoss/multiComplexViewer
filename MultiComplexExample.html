@@ -10,10 +10,15 @@
     <style>
         html{
             --baseTextHeight: 16;
+            --trackColor: white;
         }
         path.interactionPath {
             fill: none;
-            stroke: white;
+            stroke: var(--trackColor);
+        }
+        .interactionPoint {
+            fill: var(--trackColor);
+            stroke: var(--trackColor);
         }
         path.timeAxis {
             fill: none;
@@ -25,8 +30,6 @@
         }
         svg {
             background: #e3ddc3;
-            stroke: white;
-            fill:   white;
         }
         .trackLabel{
             font-size: calc(var(--baseTextHeight) * 1.5px);

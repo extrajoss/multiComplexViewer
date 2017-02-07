@@ -9,8 +9,8 @@
  * <tr><th>P2</th><th>P3</th><th>3</th></tr>
  * </table><br/>
  * Where each row represents an interaction event between 2 proteins<br/>
- * <li>The "Protein A" (config.proteinAColumn) column should contain the name of one of the proteins involved in the interaction event.</li>
- * <li>The "Protein B" (config.proteinBColumn)column should contain the name of the other protein involved in the interaction event.</li>
+ * <li>The "Protein A" (config.proteinAColumn) column should contain the protein of one of the proteins involved in the interaction event.</li>
+ * <li>The "Protein B" (config.proteinBColumn)column should contain the protein of the other protein involved in the interaction event.</li>
  * <li>The "Order" (config.eventOrderColumn)column should specify the order in which the interaction events occur in contiguous incrementing integers starting from 1</li>
  * @example
  * muliComplex.config.googleSpreadSheet = "https://docs.google.com/spreadsheets/d/1mlnSovT52sNoAtfnB44wFqecsVE-U3M4dNAPVO9ZQws/pubhtml";
@@ -29,9 +29,9 @@ var exports = {};
  * <br/>multiComplex will preferrentially load data from googleSpreadSheet
  * but if none is listed will use csvFile
  * @property {filePath} csvFile - local .csv file to load data from
- * @property {string} eventOrderColumn - column name for the "order" data in the file to be loaded
- * @property {string} proteinAColumn - column name for the first protein in an interaction in the file to be loaded
- * @property {string} proteinBColumn - column name for the second protein in an interaction in the file to be loaded
+ * @property {string} eventOrderColumn - column protein for the "order" data in the file to be loaded
+ * @property {string} proteinAColumn - column protein for the first protein in an interaction in the file to be loaded
+ * @property {string} proteinBColumn - column protein for the second protein in an interaction in the file to be loaded
  * @property {decimal} screenProportion - sets maximum proportion of a widow diemsion the canvas can take up, can be >0 and <= 1 eg 0.5 would take up at most half width and half height
  * @property {decimal} xRatio - ratio of x dimension of canvas to screenProportion Width, can be >0 and <= 1
  * @property {decimal} yRatio - ratio of y dimension of canvas to screenProportion Height, can be >0 and <= 1
@@ -66,7 +66,7 @@ exports.draw = function () {
 
  /**
   * internal settings generated from the config
-  * @param {number} maxTrackNameLength the number of characters in the track with the longest trackName (primary protein name)
+  * @param {number} maxTrackNameLength the number of characters in the track with the longest protein (primary protein protein)
   * @param {number} outerWidth canvas width in px
   * @param {number} outerHeight canvas height in px
   * @param {number} trackStrokeWidth width of trackpath between interaction points
@@ -178,95 +178,185 @@ exports.draw = function () {
  */
     function eventsToTracks() {
       ySpan = getTrackSpan();
-      xSpan = d3.extent(interactions, function (d) { return d.order; });
+      xSpan = getOrderSpan();
+    }
+
+    function getOrderSpan(){
+      var minOrder = d3.min(tracks, function (d) { return d3.min(d.interactions,function(d){return d.order; });});
+      var maxOrder = d3.max(tracks, function (d) { return d3.max(d.interactions,function(d){return d.order; });});
+      return [minOrder,maxOrder];
     }
 
  function getTrackSpan(){
     buildTrackCounts();
     getTracks();
-    getInteractions();
     return [0, tracks.length];
  }
 
  /**
   * buildTrackCounts is the meat of the module
   * each interaction is processed to record each protein (protein A and B) involved
-  * and the protein it interacted with (protein B against A and A against B)(interaction.name)
+  * and the protein it interacted with (protein B against A and A against B)(interaction.protein)
   * and to increment the number of events each protein is involved in (trackCounts)
-  * any track with with less than 3 interactions are removed
+  * any tracks with with less than 3 interactions are removed
   */
  function buildTrackCounts(){
    for (var i = 0, eventCount = eventData.length; i < eventCount; i++) {
     var event = eventData[i];
-    addTrackCount(event[config.proteinAColumn]);
-    addTrackCount(event[config.proteinBColumn]);
+    var a = event[config.proteinAColumn];
+    var b = event[config.proteinBColumn];
+    var order = +event[config.eventOrderColumn];
+    addTrackCount(a,b,order);
+    addTrackCount(b,a,order);
    }
-   for (var trackName in TrackCounts) {
-       if (TrackCounts.hasOwnProperty(trackName)) {
-         removeSmallerTrackCounts(trackName);
+   for (var protein in TrackCounts) {
+       if (TrackCounts.hasOwnProperty(protein)) {
+         removeSmallerTrackCounts(protein);
        }
    }
  }
 
- function addTrackCount(protein){
-   if(TrackCounts[protein]){
-     TrackCounts[protein]++;
+ function addTrackCount(p1,p2,order){
+   setMaxProteinNameLength(p1);
+   if(TrackCounts[p1]){
+     TrackCounts[p1].trackCount++;
    }else{
-     TrackCounts[protein]=1;
+     TrackCounts[p1]= {trackCount:1 ,interactions:[] };
    }
+   var interaction = {protein:p2,order:order};
+   TrackCounts[p1].interactions.push(interaction);
  }
 
- function removeSmallerTrackCounts(trackName){
-       if(TrackCounts[trackName]<=2){
-           delete TrackCounts[trackName];
+ function removeSmallerTrackCounts(protein){
+       if(TrackCounts[protein].trackCount<=2){
+           delete TrackCounts[protein];
            return;
        }
  }
 
  function getTracks(){
-   for (var trackName in TrackCounts) {
-     if (TrackCounts.hasOwnProperty(trackName)) {
-       setMaxTrackNameLength(trackName);
-       tracks.push(trackName);
+   for (var protein in TrackCounts) {
+     if (TrackCounts.hasOwnProperty(protein)) {
+       tracks.push({protein:protein,interactions:TrackCounts[protein].interactions});
      }
    }
    tracks.sort(
-     function (a, b) {return TrackCounts[b] - TrackCounts[a]; }
+     function (a, b) {return b.interactions.length - a.interactions.length; }
    );
  }
 
- function setMaxTrackNameLength(trackName){
-   if (settings.maxTrackNameLength < trackName.length) {
-       settings.maxTrackNameLength = trackName.length;
+ function setMaxProteinNameLength(protein){
+   if (settings.maxTrackNameLength < protein.length) {
+       settings.maxTrackNameLength = protein.length;
    }
  }
-
-function getInteractions(){
-  for (var i = 0, trackCount = tracks.length; i < trackCount; i++) {
-    var track = tracks[i];
-    addInteractions(track,i);
-  }
-}
-
-function addInteractions(track,trackNumber){
-  for (var i = 0, eventCount = eventData.length; i < eventCount; i++) {
-    var interaction = null;
-    var event = eventData[i];
-    var proteinA = event[config.proteinAColumn];
-    var proteinB = event[config.proteinBColumn];
-    var order = event[config.eventOrderColumn];
-    if (proteinA == track ){
-      interaction = {name:proteinB,order: order,trackNumber : trackNumber};
-    }else if (proteinB == track ){
-      interaction = {name:proteinA,order:order,trackNumber : trackNumber};
-    }
-    if(interaction) interactions.push(interaction);
- }
-}
 
     function render() {
         drawTracks();
         addTimeAxisPath();
+    }
+
+    function drawTracks(){
+      for (var i = 0, trackCount = tracks.length; i < trackCount; i++) {
+        addTrackLabel(i);
+        addInteractionPath(i);
+        addInteractionPoints(i);
+        addInteractionLabels(i);
+      }
+    }
+
+    function addTrackLabel(trackNumber) {
+      var track = tracks[trackNumber];
+      var firstOrder = track.interactions[0].order
+        graphArea.append("text")
+          .classed("trackLabel track"+trackNumber, true)
+          .style("text-anchor", "end")
+          .attr("x",  xScale(firstOrder) - 2 * settings.interactionPointRadius )
+          .attr("y",  yScale(tracks.length - trackNumber) + settings.interactionLabelHeight / 2 )
+          .text( track.protein);
+    }
+
+    function addInteractionPath(trackNumber) {
+          var trackinteractions = [
+              {x:d3.min(tracks[trackNumber].interactions,function(d){return d.order;}),y:tracks.length - trackNumber},
+              {x:d3.max(tracks[trackNumber].interactions,function(d){return d.order;}),y:tracks.length - trackNumber}
+            ];
+            console.log(trackinteractions);
+          var path = graphArea.append("path");
+          path.attr("d", drawTrackLine(trackinteractions))
+              .attr("style", "stroke-width: " + settings.interactionPointRadius + "px;")
+              .classed("interactionPath track"+trackNumber, true);
+    }
+
+    var drawTrackLine = d3.line()
+          .x(function (d) { return xScale(d.x); })
+          .y(function (d) { return yScale(d.y); });
+
+    function addInteractionPoints(trackNumber) {
+        var trackInteractions = tracks[trackNumber].interactions;
+        console.log(trackInteractions);
+        /*enter*/
+                var interactionPoints = graphArea.selectAll(".interactionPoint.track"+trackNumber).data(trackInteractions);
+                interactionPoints.enter().append("circle")
+                  .classed("interactionPoint track"+trackNumber, true)
+                  .attr("r", settings.interactionPointRadius);
+        /*update*/
+                interactionPoints = graphArea.selectAll(".interactionPoint.track"+trackNumber).data(trackInteractions);
+                interactionPoints.attr("cx", function (d) { return xScale(d.order); })
+                            .attr("cy", function (d) { console.log(trackNumber);return yScale(tracks.length - trackNumber); });
+        /*exit*/
+                interactionPoints.exit().remove();
+
+    }
+
+    function addInteractionLabels(trackNumber) {
+        var trackInteractions = tracks[trackNumber].interactions;
+/*enter*/
+        var interactionLabels = graphArea.selectAll(".interactionLabel.track"+trackNumber).data(trackInteractions);
+        interactionLabels.enter().append("text")
+          .classed("interactionLabel track"+trackNumber, true)
+          .style("text-anchor", "end");
+/*update*/
+        interactionLabels = graphArea.selectAll(".interactionLabel.track"+trackNumber).data(trackInteractions);
+        interactionLabels.attr("x", function (d) { return xScale(d.order)+settings.interactionPointRadius; })
+                  .attr("y", function (d) { return yScale(tracks.length - trackNumber) + settings.yLabelOffset; })
+                  .text(function (d) { return d.protein; });
+/*exit*/
+        interactionLabels.exit().remove();
+    }
+
+    function addTimeAxisPath() {
+        var path = graphArea.append("path");
+        var span = xScale.domain();
+        var timeAxisData =
+          [
+            { x: xScale(span[0]), y: yScale(0) },
+            { x: xScale(span[1]), y: yScale(0) },
+            { x: xScale(span[1]), y: yScale(0) + settings.interactionPointRadius / 4 },
+            { x: xScale(span[1]) + settings.interactionPointRadius/2, y: yScale(0) },
+            { x: xScale(span[1]), y: yScale(0) - settings.interactionPointRadius / 4 },
+            { x: xScale(span[1]), y: yScale(0)  }
+          ];
+        path.attr("d", drawTimeAxisLine(timeAxisData))
+            .attr("style", "stroke-width: " + settings.interactionPointRadius/2 + "px;")
+            .classed("timeAxis", true);
+        addTimeAxisLabel(
+            xScale(span[1])- settings.interactionPointRadius,
+            yScale(0) - settings.yLabelOffset + settings.interactionPointRadius *2
+          );
+    }
+
+    var drawTimeAxisLine = d3.line()
+        .x(function (d) { return d.x;})
+        .y(function (d) { return d.y; });
+
+    function addTimeAxisLabel(x,y) {
+        graphArea.append("text")
+          .classed("timeAxisLabel", true)
+          .style("text-anchor", "end")
+          .attr("x", x)
+          .attr("y", y)
+          .text("Time");
     }
 
     function generateSettings() {
@@ -353,101 +443,6 @@ function addInteractions(track,trackNumber){
                ((config.xRatio > 0 && config.xRatio <= 1)||(!config.xRatio ) || (config.outerWidth > 0)) &&
                ((config.yRatio > 0 && config.yRatio <= 1)||(!config.yRatio ) || (config.outerHeight > 0)) &&
                (config.eventOrderColumn > "" && config.proteinAColumn > "" && config.proteinBColumn > "");
-    }
-
-
-
-    function drawTracks(){
-        addTrackLabels();
-        addInteractionPaths();
-        addInteractionPoints();
-        addInteractionLabels();
-    }
-
-    function addTrackLabels() {
-        var trackLabels = graphArea.selectAll(".trackLabels").data(tracks);
-        trackLabels.enter().append("text")
-          .classed("trackLabel trackLabels", true)
-          .style("text-anchor", "end")
-          .attr("x", function (d,i) { return xScale(getFirstTrackInteraction(i).order) - 2 * settings.interactionPointRadius; })//settings.trackLabelWidth)//
-          .attr("y", function (d,i) { return yScale(tracks.length - i) + settings.interactionLabelHeight / 2; })
-          .text(function (d) { return d; });
-        trackLabels.exit().remove();
-    }
-
-    function addInteractionPaths() {
-        for (var i = 0, trackCount = tracks.length; i < trackCount; i++) {
-            var path = graphArea.append("path");
-            path.attr("d", drawTrackLine(getTrackInteractions(i)))
-                .attr("style", "stroke-width: " + settings.interactionPointRadius + "px;")
-                .classed("interactionPath", true);
-        }
-    }
-
-    function addInteractionPoints() {
-        var interactionPoints = graphArea.selectAll(".interactionPoints").data(interactions);
-        interactionPoints.enter().append("circle")
-          .classed("interactionPoints", true)
-          .attr("r", settings.interactionPointRadius)
-          .attr("cx", function (d) { return xScale(d.order); })
-          .attr("cy", function (d) { return yScale(tracks.length - d.trackNumber); });
-        interactionPoints.exit().remove();
-    }
-
-    function addInteractionLabels() {
-        var interactionLabels = graphArea.selectAll(".interactionLabels").data(interactions);
-        interactionLabels.enter().append("text")
-          .classed("interactionLabel interactionLabels", true)
-          .style("text-anchor", "end")
-          .attr("x", function (d) { return xScale(d.order)+settings.interactionPointRadius; })
-          .attr("y", function (d) { return yScale(tracks.length - d.trackNumber) + settings.yLabelOffset; })
-          .text(function (d) { return d.name; });
-        interactionLabels.exit().remove();
-    }
-
-    function addTimeAxisPath() {
-        var path = graphArea.append("path");
-        var span = xScale.domain();
-        var timeAxisData = [{ x: xScale(span[0]), y: yScale(0) }, { x: xScale(span[1]), y: yScale(0) }, { x: xScale(span[1]), y: yScale(0) + settings.interactionPointRadius / 4 }, { x: xScale(span[1]) + settings.interactionPointRadius/2, y: yScale(0) }, { x: xScale(span[1]), y: yScale(0) - settings.interactionPointRadius / 4 }, { x: xScale(span[1]), y: yScale(0)  }];
-        path.attr("d", drawTimeAxisLine(timeAxisData))
-            .attr("style", "stroke-width: " + settings.interactionPointRadius/2 + "px;")
-            .classed("timeAxis", true);
-        addTimeAxisLabel(xScale(span[1])- settings.interactionPointRadius, yScale(0) - settings.yLabelOffset + settings.interactionPointRadius *2);
-    }
-
-    function addTimeAxisLabel(x,y) {
-        graphArea.append("text")
-          .classed("timeAxisLabel", true)
-          .style("text-anchor", "end")
-          .attr("x", x)
-          .attr("y", y)
-          .text("Time");
-    }
-
-    var drawTrackLine = d3.line()
-          .x(function (d) { return xScale(d.order); })
-          .y(function (d) { return yScale(tracks.length - d.trackNumber); });
-
-    var drawTimeAxisLine = d3.line()
-        .x(function (d) { return d.x;})
-        .y(function (d) { return d.y; });
-
-    function getTrackInteractions(trackNumber) {
-        var trackInteractions = [];
-        for (var i = 0, interactionCount = interactions.length; i < interactionCount; i++) {
-            if (interactions[i].trackNumber == trackNumber) {
-                trackInteractions.push(interactions[i]);
-            }
-        }
-        return trackInteractions;
-    }
-
-    function getFirstTrackInteraction(trackNumber) {
-        for (var i = 0, interactionCount = interactions.length; i < interactionCount; i++) {
-            if (interactions[i].trackNumber == trackNumber) {
-                return interactions[i];
-            }
-        }
     }
 
     function getScreenDimensions() {

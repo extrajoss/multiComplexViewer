@@ -32,6 +32,8 @@ var exports = {};
  * @property {string} eventOrderColumn - column protein for the "order" data in the file to be loaded
  * @property {string} proteinAColumn - column protein for the first protein in an interaction in the file to be loaded
  * @property {string} proteinBColumn - column protein for the second protein in an interaction in the file to be loaded
+ * @property {number} minimumInteractionCount - if a track has less interactions than the minimumInteractionCount it won't be displayed
+ * @property {string} removeDuplicateInteractions - can be either "true" or "false" will remove mirrored interactions from smaller tracks if true
  * @property {decimal} screenProportion - sets maximum proportion of a widow diemsion the canvas can take up, can be >0 and <= 1 eg 0.5 would take up at most half width and half height
  * @property {decimal} xRatio - ratio of x dimension of canvas to screenProportion Width, can be >0 and <= 1
  * @property {decimal} yRatio - ratio of y dimension of canvas to screenProportion Height, can be >0 and <= 1
@@ -45,6 +47,8 @@ exports.config = {
         eventOrderColumn: "Order",
         proteinAColumn: "Protein A",
         proteinBColumn: "Protein B",
+        minimumInteractionCount:3,
+        removeDuplicateInteractions:"false", // "true" or "false"
         screenProportion: 0.7,
         xRatio: null,
         yRatio: null,
@@ -101,7 +105,7 @@ exports.draw = function () {
 
     var eventData = [];
     var tracks = [];
-    var TrackCounts = {};
+    var trackCounts = {};
     var interactions = [];
 
     var xSpan = null;
@@ -182,6 +186,7 @@ exports.draw = function () {
     }
 
     function getOrderSpan(){
+      console.log(tracks);
       var minOrder = d3.min(tracks, function (d) { return d3.min(d.interactions,function(d){return d.order; });});
       var maxOrder = d3.max(tracks, function (d) { return d3.max(d.interactions,function(d){return d.order; });});
       return [minOrder,maxOrder];
@@ -201,6 +206,7 @@ exports.draw = function () {
   * any tracks with with less than 3 interactions are removed
   */
  function buildTrackCounts(){
+   eventData.sort(function(a,b){return (+a[config.eventOrderColumn]) - (+b[config.eventOrderColumn]);});
    for (var i = 0, eventCount = eventData.length; i < eventCount; i++) {
     var event = eventData[i];
     var a = event[config.proteinAColumn];
@@ -209,8 +215,12 @@ exports.draw = function () {
     addTrackCount(a,b,order);
     addTrackCount(b,a,order);
    }
-   for (var protein in TrackCounts) {
-       if (TrackCounts.hasOwnProperty(protein)) {
+
+   if(config.removeDuplicateInteractions=="true"){
+     removeDuplicateInteractions();
+   }
+   for (var protein in trackCounts) {
+       if (trackCounts.hasOwnProperty(protein)) {
          removeSmallerTrackCounts(protein);
        }
    }
@@ -218,31 +228,57 @@ exports.draw = function () {
 
  function addTrackCount(p1,p2,order){
    setMaxProteinNameLength(p1);
-   if(TrackCounts[p1]){
-     TrackCounts[p1].trackCount++;
+   if(trackCounts[p1]){
+     trackCounts[p1].trackCount++;
    }else{
-     TrackCounts[p1]= {trackCount:1 ,interactions:[] };
+     trackCounts[p1]= {trackCount:1 ,interactions:{} };
    }
-   var interaction = {protein:p2,order:order};
-   TrackCounts[p1].interactions.push(interaction);
+   trackCounts[p1].interactions[p2]=order;
  }
 
  function removeSmallerTrackCounts(protein){
-       if(TrackCounts[protein].trackCount<=2){
-           delete TrackCounts[protein];
-           return;
+       if(trackCounts[protein].trackCount<config.minimumInteractionCount){
+           delete trackCounts[protein];
        }
  }
 
+ function removeDuplicateInteractions(){
+   for (var proteinA in trackCounts) {
+     if (trackCounts.hasOwnProperty(proteinA)) {
+       for (var proteinB in trackCounts[proteinA].interactions) {
+         if (trackCounts.hasOwnProperty(proteinB)) {
+           removeDuplicateInteraction(proteinA,proteinB)
+         }
+       }
+     }
+   }
+ }
+ function removeDuplicateInteraction(proteinA,proteinB){
+   if(trackCounts[proteinA].trackCount < trackCounts[proteinB].trackCount){
+     delete trackCounts[proteinA].interactions[proteinB];
+     trackCounts[proteinA].trackCount--;
+   }
+ }
+
  function getTracks(){
-   for (var protein in TrackCounts) {
-     if (TrackCounts.hasOwnProperty(protein)) {
-       tracks.push({protein:protein,interactions:TrackCounts[protein].interactions});
+   for (var protein in trackCounts) {
+     if (trackCounts.hasOwnProperty(protein)) {
+       tracks.push({protein:protein,interactions:getInteractions(trackCounts[protein].interactions)});
      }
    }
    tracks.sort(
      function (a, b) {return b.interactions.length - a.interactions.length; }
    );
+ }
+
+ function getInteractions(interactionsObj){
+   var interactions = [];
+   for(interaction in interactionsObj){
+     if (interactionsObj.hasOwnProperty(interaction)) {
+       interactions.push({protein:interaction,order:interactionsObj[interaction]})
+     }
+   }
+   return interactions;
  }
 
  function setMaxProteinNameLength(protein){
@@ -267,7 +303,7 @@ exports.draw = function () {
 
     function addTrackLabel(trackNumber) {
       var track = tracks[trackNumber];
-      var firstOrder = track.interactions[0].order
+      var firstOrder = track.interactions[0].order;
         graphArea.append("text")
           .classed("trackLabel track"+trackNumber, true)
           .style("text-anchor", "end")
@@ -281,7 +317,6 @@ exports.draw = function () {
               {x:d3.min(tracks[trackNumber].interactions,function(d){return d.order;}),y:tracks.length - trackNumber},
               {x:d3.max(tracks[trackNumber].interactions,function(d){return d.order;}),y:tracks.length - trackNumber}
             ];
-            console.log(trackinteractions);
           var path = graphArea.append("path");
           path.attr("d", drawTrackLine(trackinteractions))
               .attr("style", "stroke-width: " + settings.interactionPointRadius + "px;")
@@ -294,7 +329,6 @@ exports.draw = function () {
 
     function addInteractionPoints(trackNumber) {
         var trackInteractions = tracks[trackNumber].interactions;
-        console.log(trackInteractions);
         /*enter*/
                 var interactionPoints = graphArea.selectAll(".interactionPoint.track"+trackNumber).data(trackInteractions);
                 interactionPoints.enter().append("circle")
@@ -303,10 +337,9 @@ exports.draw = function () {
         /*update*/
                 interactionPoints = graphArea.selectAll(".interactionPoint.track"+trackNumber).data(trackInteractions);
                 interactionPoints.attr("cx", function (d) { return xScale(d.order); })
-                            .attr("cy", function (d) { console.log(trackNumber);return yScale(tracks.length - trackNumber); });
+                            .attr("cy", function (d) { return yScale(tracks.length - trackNumber); });
         /*exit*/
                 interactionPoints.exit().remove();
-
     }
 
     function addInteractionLabels(trackNumber) {
@@ -403,7 +436,7 @@ exports.draw = function () {
         canvasArea = null;
         graphArea = null;
         eventData = [];
-        TrackCounts = {};
+        trackCounts = {};
         tracks = [];
         interactions = [];
         xSpan = null;
@@ -442,6 +475,7 @@ exports.draw = function () {
         return (config.screenProportion > 0 && config.screenProportion <= 1) &&
                ((config.xRatio > 0 && config.xRatio <= 1)||(!config.xRatio ) || (config.outerWidth > 0)) &&
                ((config.yRatio > 0 && config.yRatio <= 1)||(!config.yRatio ) || (config.outerHeight > 0)) &&
+               (config.minimumInteractionCount>=1)&&
                (config.eventOrderColumn > "" && config.proteinAColumn > "" && config.proteinBColumn > "");
     }
 

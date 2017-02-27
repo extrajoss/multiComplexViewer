@@ -22,9 +22,11 @@
  * @requires d3.js
  * @requires tabletop.js
  */
+
 let multiComplex = function () {
     "use strict";
     let multiComplexReturns = {};
+
     /**
      * configuration settings to determine how the module will load event data and render tracks
      * @property {url} googleSpreadSheet - published googleSpreadSheet link.
@@ -43,6 +45,7 @@ let multiComplex = function () {
      * @property {number} outerHeight - canvas height in px. used to overRide the setting made by yRatio if a set canvas height is desired
      * @property {string} selector - used to specified the DOM element that the SVG canvas will be appended to
      */
+
     multiComplexReturns.config = {
         sourceType: "",
         source: "",
@@ -70,6 +73,7 @@ let multiComplex = function () {
     /**
      * Triggers loading and processing data, generating settings from config and rendering data
      */
+
 
     multiComplexReturns.draw = function () {
         setConfig();
@@ -101,7 +105,6 @@ let multiComplex = function () {
         xScale = null,
         yScale = null,
         screenDimensions = null;
-
     /**
      * internal settings generated from the config
      * @param {number} maxTrackNameLength the number of characters in the track with the longest protein (primary protein protein)
@@ -114,6 +117,7 @@ let multiComplex = function () {
      * @param {number} fontHeightWidthRatio not sure how you calculate this for a given font so I have just set it to a reasonable number (in this case 2)
      * @param {object} margin the margin properties in px inside the canvas
      */
+
     let settings = {
         maxTrackNameLength: 0,
         outerWidth: 0,
@@ -251,6 +255,48 @@ let multiComplex = function () {
         }
         for (let protein in trackCounts) {
             removeSmallerTrackCounts(protein);
+=======
+
+    function loadInteractionEvents() {
+        if (config.sourceType == config.constants.sourceType.GOOGLESPREADSHEET) {
+            return new Promise(loadInteractionEventsFromGoogleSpreadSheet);
+        } else if (config.sourceType == config.constants.sourceType.CSVFILE) {
+            return new Promise(loadInteractionEventsFromCSVFile);
+        }
+    }
+
+    function loadInteractionEventsFromCSVFile(resolve, reject) {
+        d3.csv(config.source, resolve);
+    }
+
+    function loadInteractionEventsFromGoogleSpreadSheet(resolve, reject) {
+        Tabletop.init({
+            key: config.source,
+            callback: resolve,
+            simpleSheet: true
+        });
+    }
+
+    function setInteractionEvents(data) {
+        if(validateEventData(data)){
+            interactionEvents = data;
+        }
+    }
+
+    /**
+     * generates span settings by looking at the eventData to get order extent for x and then processing the eventData to calculate tracks for y
+     * note that the y span uses the length of the array rather than the maximum index to include room for the timeAxis
+     */
+    function convertInteractionEventsToTracks() {
+        buildTrackCounts();
+        getTracks();
+    }
+
+    function getTimePointSpan() {
+        var minTimePoint = d3.min(tracks, function (d) {
+            return d3.min(d.interactions, function (d) {
+                return d.timePoint;
+            });
         }
     }
 
@@ -452,7 +498,7 @@ let multiComplex = function () {
             yScale(0) - settings.yLabelOffset + settings.interactionPointRadius * 2
         );
     }
-
+      
     let drawTimeAxisLine = d3.line()
         .x(function (d) {
             return d.x;

@@ -1,3 +1,4 @@
+/* globals d3,Tabletop */
 /**
  * The multiComplex module takes data specified in either config.googleSpreadSheet or config.csvFile and renders it via SVG and the the d3 library to the selector specified in config.selector
  * <br/><br/>The Data should have at least the below form
@@ -13,15 +14,19 @@
  * <li>The "Protein B" (config.proteinBColumn)column should contain the protein of the other protein involved in the interaction event.</li>
  * <li>The "Order" (config.timePointColumn)column should specify the order in which the interaction events occur in contiguous incrementing integers starting from 1</li>
  * @example
- * muliComplex.config.googleSpreadSheet = "https://docs.google.com/spreadsheets/d/1mlnSovT52sNoAtfnB44wFqecsVE-U3M4dNAPVO9ZQws/pubhtml";
+ * multiComplex.config.sourceType = multiComplex.constants.sourceType.GOOGLE_SPREADSHEET;
+ * multiComplex.config.source =  "https://docs.google.com/spreadsheets/d/1mlnSovT52sNoAtfnB44wFqecsVE-U3M4dNAPVO9ZQws/pubhtml";
  * muliComplex.config.selector = "#mySelector";
  * multiComplex.draw();
  * @module multiComplex
  * @requires d3.js
  * @requires tabletop.js
  */
-var multiComplex = function () {
-    var exports = {};
+
+let multiComplex = function () {
+    "use strict";
+    let multiComplexReturns = {};
+
     /**
      * configuration settings to determine how the module will load event data and render tracks
      * @property {url} googleSpreadSheet - published googleSpreadSheet link.
@@ -40,13 +45,8 @@ var multiComplex = function () {
      * @property {number} outerHeight - canvas height in px. used to overRide the setting made by yRatio if a set canvas height is desired
      * @property {string} selector - used to specified the DOM element that the SVG canvas will be appended to
      */
-    exports.config = {
-        constants: {
-            sourceType: {
-                GOOGLESPREADSHEET: "googleSpreadSheet",
-                CSVFILE: "csvFile"
-            }
-        },
+
+    multiComplexReturns.config = {
         sourceType: "",
         source: "",
         timePointColumn: "Order",
@@ -63,11 +63,19 @@ var multiComplex = function () {
         selector: "body"
     };
 
+    multiComplexReturns.constants = Object.freeze({
+        sourceType: Object.freeze({
+            GOOGLE_SPREADSHEET: "googleSpreadSheet",
+            CSV_FILE: "csvFile"
+        })
+    });
+
     /**
      * Triggers loading and processing data, generating settings from config and rendering data
      */
 
-    exports.draw = function () {
+
+    multiComplexReturns.draw = function () {
         setConfig();
         getInteractionEvents()
             .then(convertInteractionEventsToTracks)
@@ -75,28 +83,28 @@ var multiComplex = function () {
             .then(setupCanvas)
             .then(drawTimeAxis)
             .then(drawTracks)
-            .catch(function(err){console.error(err);});
+            .catch(toConsoleError);
     };
 
     /**
      * private variables
      */
 
-    var config = exports.config;
+    let config = multiComplexReturns.config;
+    const constants = multiComplexReturns.constants;
 
-    var canvasArea = null
-        , graphArea = null;
+    let canvasArea = null,
+        graphArea = null;
 
-    var interactionEvents = []
-        , tracks = []
-        , trackCounts = {};
+    let interactionEvents = [],
+        tracks = [],
+        trackCounts = Object.create(null);
 
-    var xSpan = null
-        , ySpan = null
-        , xScale = null
-        , yScale = null
-        , screenDimensions = null;
-
+    let xSpan = null,
+        ySpan = null,
+        xScale = null,
+        yScale = null,
+        screenDimensions = null;
     /**
      * internal settings generated from the config
      * @param {number} maxTrackNameLength the number of characters in the track with the longest protein (primary protein protein)
@@ -109,7 +117,8 @@ var multiComplex = function () {
      * @param {number} fontHeightWidthRatio not sure how you calculate this for a given font so I have just set it to a reasonable number (in this case 2)
      * @param {object} margin the margin properties in px inside the canvas
      */
-    var settings = {
+
+    let settings = {
         maxTrackNameLength: 0,
         outerWidth: 0,
         outerHeight: 0,
@@ -127,6 +136,7 @@ var multiComplex = function () {
      * private functions
      */
     function setConfig() {
+        clear();
         if (config.useURLConfig) {
             setConfigFromURL();
         }
@@ -134,17 +144,17 @@ var multiComplex = function () {
     }
 
     function setConfigFromURL() {
-        var urlParams = getURLParams();
-        for (var param in urlParams) {
-            if (config.hasOwnProperty(param)) {
+        let urlParams = getURLParams();
+        for(let param in urlParams) {
+            if (urlParams.hasOwnProperty(param) && config.hasOwnProperty(param)) {
                 config[param] = urlParams[param];
             }
         }
     }
 
     function getURLParams() {
-        var urlParams;
-        var match,
+        let urlParams;
+        let match,
             pl = /\+/g,  // Regex for replacing addition symbol with a space
             search = /([^&=]+)=?([^&]*)/g,
             decode = function (s) {
@@ -166,6 +176,86 @@ var multiComplex = function () {
         return loadInteractionEvents()
             .then(setInteractionEvents);
     }
+
+    function loadInteractionEvents() {
+        if (config.sourceType === constants.sourceType.GOOGLE_SPREADSHEET) {
+            return new Promise(loadInteractionEventsFromGoogleSpreadSheet);
+        } else if (config.sourceType === constants.sourceType.CSV_FILE) {
+            return new Promise(loadInteractionEventsFromCSVFile);
+        }
+    }
+
+    function loadInteractionEventsFromCSVFile(resolve) {
+        d3.csv(config.source, resolve);
+    }
+
+    function loadInteractionEventsFromGoogleSpreadSheet(resolve) {
+        Tabletop.init({
+            key: config.source,
+            callback: resolve,
+            simpleSheet: true
+        });
+    }
+
+    function setInteractionEvents(data) {
+        if (validateEventData(data)) {
+            interactionEvents = data;
+        }
+    }
+
+    /**
+     * generates span settings by looking at the eventData to get order extent for x and then processing the eventData to calculate tracks for y
+     * note that the y span uses the length of the array rather than the maximum index to include room for the timeAxis
+     */
+    function convertInteractionEventsToTracks() {
+        buildTrackCounts();
+        getTracks();
+    }
+
+    function getTimePointSpan() {
+        let minTimePoint = d3.min(tracks, function (d) {
+            return d3.min(d.interactions, function (d) {
+                return d.timePoint;
+            });
+        });
+        let maxTimePoint = d3.max(tracks, function (d) {
+            return d3.max(d.interactions, function (d) {
+                return d.timePoint;
+            });
+        });
+        return [minTimePoint, maxTimePoint];
+    }
+
+    function getTrackSpan() {
+        return [0, tracks.length];
+    }
+
+    /**
+     * buildTrackCounts is the meat of the module
+     * each interaction is processed to record each protein (protein A and B) involved
+     * and the protein it interacted with (protein B against A and A against B)(interaction.protein)
+     * and to increment the number of events each protein is involved in (trackCounts)
+     * any tracks with with less than config.minimumInteractionCount interactions are removed
+     */
+    function buildTrackCounts() {
+        interactionEvents.sort(function (a, b) {
+            return (+a[config.timePointColumn]) - (+b[config.timePointColumn]);
+        });
+        for (let i = 0, eventCount = interactionEvents.length; i < eventCount; i++) {
+            let event = interactionEvents[i];
+            let proteinA = event[config.proteinAColumn];
+            let proteinB = event[config.proteinBColumn];
+            let timePoint = +event[config.timePointColumn];
+            addTrackCount(proteinA, proteinB, timePoint);
+            addTrackCount(proteinB, proteinA, timePoint);
+        }
+
+        if (config.removeDuplicateInteractions === "true") {
+            removeDuplicateInteractions();
+        }
+        for (let protein in trackCounts) {
+            removeSmallerTrackCounts(protein);
+=======
 
     function loadInteractionEvents() {
         if (config.sourceType == config.constants.sourceType.GOOGLESPREADSHEET) {
@@ -207,46 +297,6 @@ var multiComplex = function () {
             return d3.min(d.interactions, function (d) {
                 return d.timePoint;
             });
-        });
-        var maxTimePoint = d3.max(tracks, function (d) {
-            return d3.max(d.interactions, function (d) {
-                return d.timePoint;
-            });
-        });
-        return [minTimePoint, maxTimePoint];
-    }
-
-    function getTrackSpan() {
-        return [0, tracks.length];
-    }
-
-    /**
-     * buildTrackCounts is the meat of the module
-     * each interaction is processed to record each protein (protein A and B) involved
-     * and the protein it interacted with (protein B against A and A against B)(interaction.protein)
-     * and to increment the number of events each protein is involved in (trackCounts)
-     * any tracks with with less than config.minimumInteractionCount interactions are removed
-     */
-    function buildTrackCounts() {
-        interactionEvents.sort(function (a, b) {
-            return (+a[config.timePointColumn]) - (+b[config.timePointColumn]);
-        });
-        for (var i = 0, eventCount = interactionEvents.length; i < eventCount; i++) {
-            var event = interactionEvents[i];
-            var proteinA = event[config.proteinAColumn];
-            var proteinB = event[config.proteinBColumn];
-            var timePoint = +event[config.timePointColumn];
-            addTrackCount(proteinA, proteinB, timePoint);
-            addTrackCount(proteinB, proteinA, timePoint);
-        }
-
-        if (config.removeDuplicateInteractions == "true") {
-            removeDuplicateInteractions();
-        }
-        for (var protein in trackCounts) {
-            if (trackCounts.hasOwnProperty(protein)) {
-                removeSmallerTrackCounts(protein);
-            }
         }
     }
 
@@ -255,7 +305,7 @@ var multiComplex = function () {
         if (trackCounts[p1]) {
             trackCounts[p1].trackCount++;
         } else {
-            trackCounts[p1] = {trackCount: 1, interactions: {}};
+            trackCounts[p1] = {trackCount: 1, interactions: Object.create(null)};
         }
         trackCounts[p1].interactions[p2] = timePoint;
     }
@@ -267,11 +317,11 @@ var multiComplex = function () {
     }
 
     function removeDuplicateInteractions() {
-        for (var proteinA in trackCounts) {
+        for (let proteinA in trackCounts) {
             if (trackCounts.hasOwnProperty(proteinA)) {
-                for (var proteinB in trackCounts[proteinA].interactions) {
+                for (let proteinB in trackCounts[proteinA].interactions) {
                     if (trackCounts.hasOwnProperty(proteinB)) {
-                        removeDuplicateInteraction(proteinA, proteinB)
+                        removeDuplicateInteraction(proteinA, proteinB);
                     }
                 }
             }
@@ -286,10 +336,8 @@ var multiComplex = function () {
     }
 
     function getTracks() {
-        for (var protein in trackCounts) {
-            if (trackCounts.hasOwnProperty(protein)) {
-                tracks.push({protein: protein, interactions: getTrackInteractions(trackCounts[protein].interactions)});
-            }
+        for (let protein in trackCounts) {
+            tracks.push({protein: protein, interactions: getTrackInteractions(trackCounts[protein].interactions)});
         }
         tracks.sort(
             function (a, b) {
@@ -299,11 +347,9 @@ var multiComplex = function () {
     }
 
     function getTrackInteractions(interactions) {
-        var trackInteractions = [];
-        for (interaction in interactions) {
-            if (interactions.hasOwnProperty(interaction)) {
-                trackInteractions.push({protein: interaction, timePoint: interactions[interaction]})
-            }
+        let trackInteractions = [];
+        for (let interaction in interactions) {
+            trackInteractions.push({protein: interaction, timePoint: interactions[interaction]});
         }
         return trackInteractions;
     }
@@ -315,12 +361,12 @@ var multiComplex = function () {
     }
 
     function drawTracks() {
-        for (var trackNumber = 0, trackCount = tracks.length; trackNumber < trackCount; trackNumber++) {
+        for (let trackNumber = 0, trackCount = tracks.length; trackNumber < trackCount; trackNumber++) {
             drawTrack(trackNumber);
         }
     }
 
-    function drawTrack(trackNumber){
+    function drawTrack(trackNumber) {
         addTrackLabel(trackNumber);
         addTrackPath(trackNumber);
         addTrackInteractionPoints(trackNumber);
@@ -328,8 +374,8 @@ var multiComplex = function () {
     }
 
     function addTrackLabel(trackNumber) {
-        var track = tracks[trackNumber];
-        var firstTimePoint = track.interactions[0].timePoint;
+        let track = tracks[trackNumber];
+        let firstTimePoint = track.interactions[0].timePoint;
         graphArea.append("text")
             .classed("trackLabel track" + trackNumber, true)
             .style("text-anchor", "end")
@@ -339,7 +385,7 @@ var multiComplex = function () {
     }
 
     function addTrackPath(trackNumber) {
-        var trackinteractions = [
+        let trackInteractions = [
             {
                 x: d3.min(tracks[trackNumber].interactions, function (d) {
                     return d.timePoint;
@@ -351,13 +397,13 @@ var multiComplex = function () {
                 }), y: tracks.length - trackNumber
             }
         ];
-        var path = graphArea.append("path");
-        path.attr("d", drawTrackLine(trackinteractions))
+        let path = graphArea.append("path");
+        path.attr("d", drawTrackLine(trackInteractions))
             .attr("style", "stroke-width: " + settings.interactionPointRadius + "px;")
             .classed("interactionPath track" + trackNumber, true);
     }
 
-    var drawTrackLine = d3.line()
+    let drawTrackLine = d3.line()
         .x(function (d) {
             return xScale(d.x);
         })
@@ -366,10 +412,10 @@ var multiComplex = function () {
         });
 
     function addTrackInteractionPoints(trackNumber) {
-        var trackInteractions = tracks[trackNumber].interactions;
+        let trackInteractions = tracks[trackNumber].interactions;
 
         /*enter*/
-        var interactionPoints = graphArea
+        let interactionPoints = graphArea
             .selectAll(".interactionPoint.track" + trackNumber)
             .data(trackInteractions);
 
@@ -389,16 +435,17 @@ var multiComplex = function () {
         function getInteractionPointX(d) {
             return xScale(d.timePoint);
         }
-        function getInteractionPointY(d) {
+
+        function getInteractionPointY() {
             return yScale(tracks.length - trackNumber);
         }
     }
 
     function addTrackInteractionLabels(trackNumber) {
 
-        var trackInteractions = tracks[trackNumber].interactions;
+        let trackInteractions = tracks[trackNumber].interactions;
 
-        var interactionLabels = graphArea
+        let interactionLabels = graphArea
             .selectAll(".interactionLabel.track" + trackNumber)
             .data(trackInteractions);
 
@@ -420,19 +467,21 @@ var multiComplex = function () {
         function getInteractionLabelX(d) {
             return xScale(d.timePoint) + settings.interactionPointRadius;
         }
-        function getInteractionLabelY(d) {
+
+        function getInteractionLabelY() {
             return yScale(tracks.length - trackNumber) + settings.yLabelOffset;
         }
-        function getInteractionLabel(d){
+
+        function getInteractionLabel(d) {
             return d.protein;
         }
     }
 
     function drawTimeAxis() {
-        var path = graphArea.append("path");
-        var span = xScale.domain();
-        var maxTimePoint  = span[1];
-        var timeAxisData =
+        let path = graphArea.append("path");
+        let span = xScale.domain();
+        let maxTimePoint = span[1];
+        let timeAxisData =
             [
                 {x: xScale(span[0]), y: yScale(0)},
                 {x: xScale(span[1]), y: yScale(0)},
@@ -449,8 +498,8 @@ var multiComplex = function () {
             yScale(0) - settings.yLabelOffset + settings.interactionPointRadius * 2
         );
     }
-
-    var drawTimeAxisLine = d3.line()
+      
+    let drawTimeAxisLine = d3.line()
         .x(function (d) {
             return d.x;
         })
@@ -473,32 +522,32 @@ var multiComplex = function () {
         ySpan = getTrackSpan();
         xSpan = getTimePointSpan();
 
-        var maxTimePoint = xSpan[1]
-            ,maxTrack = ySpan[1];
+        let maxTimePoint = xSpan[1],
+            maxTrack = ySpan[1];
 
         screenDimensions = getScreenDimensions();
 
         settings.yRatio = (
-              config.yRatio
-            ? config.yRatio * config.screenProportion
-            : getYRatio()
+            config.yRatio ?
+                config.yRatio * config.screenProportion :
+                getYRatio()
         );
 
         settings.xRatio = (
-              config.xRatio
-            ? config.xRatio * config.screenProportion
-            : getXRatio()
+            config.xRatio ?
+                config.xRatio * config.screenProportion :
+                getXRatio()
         );
 
         settings.outerHeight = (
-              config.outerHeight
-            ? config.outerHeight
-            : screenDimensions.height * settings.yRatio
+            config.outerHeight ?
+                config.outerHeight :
+                screenDimensions.height * settings.yRatio
         );
         settings.outerWidth = (
-              config.outerWidth
-            ? config.outerWidth
-            : screenDimensions.width * settings.xRatio
+            config.outerWidth ?
+                config.outerWidth :
+                screenDimensions.width * settings.xRatio
         );
 
         settings.trackStrokeWidth = Math.min(
@@ -508,7 +557,7 @@ var multiComplex = function () {
         settings.interactionPointRadius = settings.trackStrokeWidth;
 
         settings.interactionLabelHeight = settings.interactionPointRadius * 1.5;
-        document.documentElement.style.setProperty('--baseTextHeight', settings.interactionLabelHeight);
+        document.documentElement.style.setProperty('--baseTextHeight', settings.interactionLabelHeight.toString(), "");
 
         settings.trackLabelWidth = settings.interactionLabelHeight * settings.maxTrackNameLength / settings.fontHeightWidthRatio;
 
@@ -527,16 +576,16 @@ var multiComplex = function () {
     }
 
     function getYRatio() {
-        var maxTimePoint = xSpan[1]
-            ,maxTrack = ySpan[1];
-        var yRatio = (screenDimensions.width / maxTrack ) / (screenDimensions.height / maxTimePoint);
+        let maxTimePoint = xSpan[1],
+            maxTrack = ySpan[1];
+        let yRatio = (screenDimensions.width / maxTrack ) / (screenDimensions.height / maxTimePoint);
         return yRatio > 1 ? config.screenProportion : yRatio * config.screenProportion;
     }
 
     function getXRatio() {
-        var maxTimePoint = xSpan[1]
-            ,maxTrack = ySpan[1];
-        var xRatio = (screenDimensions.width / maxTrack) / (screenDimensions.height / maxTimePoint );
+        let maxTimePoint = xSpan[1],
+            maxTrack = ySpan[1];
+        let xRatio = (screenDimensions.width / maxTrack) / (screenDimensions.height / maxTimePoint );
         return xRatio > 1 ? config.screenProportion : xRatio * config.screenProportion;
     }
 
@@ -548,7 +597,7 @@ var multiComplex = function () {
         graphArea = null;
 
         interactionEvents = [];
-        trackCounts = {};
+        trackCounts = Object.create(null);
         tracks = [];
 
         xSpan = null;
@@ -575,48 +624,54 @@ var multiComplex = function () {
     }
 
     function validateEventData(data) {
-        if (!((data.length > 0) && data[0][config.timePointColumn] && data[0][config.proteinAColumn] && data[0][config.proteinBColumn])){
+        if (!((data.length > 0) && data[0][config.timePointColumn] && data[0][config.proteinAColumn] && data[0][config.proteinBColumn])) {
             throw "Data loaded does not match config settings";
         }
         return true;
     }
 
     function validateConfig() {
-         if(!(config.screenProportion > 0 && config.screenProportion <= 1) ){
-             throw "Config screenProportion settings are invalid";
-         }
-        if(!((config.xRatio > 0 && config.xRatio <= 1) || (!config.xRatio ) || (config.outerWidth > 0)) ){
+        if (!(config.screenProportion > 0 && config.screenProportion <= 1)) {
+            throw "Config screenProportion settings are invalid";
+        }
+        if (!((config.xRatio > 0 && config.xRatio <= 1) || (!config.xRatio ) || (config.outerWidth > 0))) {
             throw "Config Width settings are invalid";
         }
-        if(!((config.yRatio > 0 && config.yRatio <= 1) || (!config.yRatio ) || (config.outerHeight > 0)) ){
+        if (!((config.yRatio > 0 && config.yRatio <= 1) || (!config.yRatio ) || (config.outerHeight > 0))) {
             throw "Config Height settings are invalid";
         }
-        if(!(config.minimumInteractionCount >= 1) ){
+        if (!(config.minimumInteractionCount >= 1)) {
             throw "Config minimumInteractionCount settings are invalid";
         }
-        if(!(config.timePointColumn > "" && config.proteinAColumn > "" && config.proteinBColumn > "") ){
+        if (!(config.timePointColumn > "" && config.proteinAColumn > "" && config.proteinBColumn > "")) {
             throw "Config import column settings are invalid";
         }
-        if(d3.select(config.selector).empty()){
+        if (d3.select(config.selector).empty()) {
             throw "Config selector settings are invalid";
         }
         return true;
     }
 
     function getScreenDimensions() {
-        const SCROLLBARWIDTH = 20;
-        var w = window,
+        const SCROLLBAR_WIDTH = 20;
+        let w = window,
             d = document,
             e = d.documentElement,
             g = d.getElementsByTagName('body')[0],
             x = w.innerWidth || e.clientWidth || g.clientWidth,
             y = w.innerHeight || e.clientHeight || g.clientHeight;
-        return {width: x - SCROLLBARWIDTH, height: y - SCROLLBARWIDTH};
+        return {width: x - SCROLLBAR_WIDTH, height: y - SCROLLBAR_WIDTH};
+    }
+
+    function toConsoleError(err) {
+        if (window.console) {
+            window.console.error(err);
+        }
     }
 
     /* end internal functions */
 
     /*return public interface*/
-    return exports;
+    return multiComplexReturns;
 
 }();

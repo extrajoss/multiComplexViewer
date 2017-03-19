@@ -207,17 +207,13 @@ let multiComplex = function () {
      * generates span settings by looking at the eventData to get order extent for x and then processing the eventData to calculate tracks for y
      * note that the y span uses the length of the array rather than the maximum index to include room for the timeAxis
      */
-    function convertInteractionEventsToTracks() {
-        buildTrackCounts();
-        getTracks();
-    }
 
-    function getTimePointSpan() {
+    function getTimePointSpan() {        
         let minTimePoint = d3.min(tracks, function (d) {
             return d3.min(d.interactions, function (d) {
                 return d.timePoint;
             });
-        });
+        });        
         let maxTimePoint = d3.max(tracks, function (d) {
             return d3.max(d.interactions, function (d) {
                 return d.timePoint;
@@ -255,31 +251,6 @@ let multiComplex = function () {
         }
         for (let protein in trackCounts) {
             removeSmallerTrackCounts(protein);
-=======
-
-    function loadInteractionEvents() {
-        if (config.sourceType == config.constants.sourceType.GOOGLESPREADSHEET) {
-            return new Promise(loadInteractionEventsFromGoogleSpreadSheet);
-        } else if (config.sourceType == config.constants.sourceType.CSVFILE) {
-            return new Promise(loadInteractionEventsFromCSVFile);
-        }
-    }
-
-    function loadInteractionEventsFromCSVFile(resolve, reject) {
-        d3.csv(config.source, resolve);
-    }
-
-    function loadInteractionEventsFromGoogleSpreadSheet(resolve, reject) {
-        Tabletop.init({
-            key: config.source,
-            callback: resolve,
-            simpleSheet: true
-        });
-    }
-
-    function setInteractionEvents(data) {
-        if(validateEventData(data)){
-            interactionEvents = data;
         }
     }
 
@@ -290,14 +261,6 @@ let multiComplex = function () {
     function convertInteractionEventsToTracks() {
         buildTrackCounts();
         getTracks();
-    }
-
-    function getTimePointSpan() {
-        var minTimePoint = d3.min(tracks, function (d) {
-            return d3.min(d.interactions, function (d) {
-                return d.timePoint;
-            });
-        }
     }
 
     function addTrackCount(p1, p2, timePoint) {
@@ -665,7 +628,7 @@ let multiComplex = function () {
 
     function toConsoleError(err) {
         if (window.console) {
-            window.console.error(err);
+            window.console.log(err);
         }
     }
 
